@@ -250,10 +250,13 @@ width:100%;max-width:560px;max-height:92vh;border-radius:24px 24px 0 0;overflow:
 <header class="header">
   <div class="header-top">
     <h1>📝 论文工单管理</h1>
-    <div class="sync-badge" id="syncBadge"><span class="sync-dot"></span><span id="syncText">连接中</span></div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <button id="statsToggle" onclick="toggleStats()" style="font-size:0.72rem;padding:4px 10px;border-radius:20px;background:rgba(255,255,255,0.2);color:white;border:none;cursor:pointer;white-space:nowrap">👁 显示统计</button>
+      <div class="sync-badge" id="syncBadge"><span class="sync-dot"></span><span id="syncText">连接中</span></div>
+    </div>
   </div>
   <div class="header-sub">☁️ 云端同步版</div>
-  <div class="stats">
+  <div class="stats" style="display:none">
     <div class="stat"><span class="stat-val" id="s-total">0</span>总工单</div>
     <div class="stat"><span class="stat-val red" id="s-pending">0</span>待交稿</div>
     <div class="stat"><span class="stat-val green" id="s-amount">¥0</span>总成交</div>
@@ -445,7 +448,7 @@ width:100%;max-width:560px;max-height:92vh;border-radius:24px 24px 0 0;overflow:
 // ============================================================
 const SUPABASE_URL = 'https://jdkvhnhweffrvrlunqpv.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impka3Zobmh3ZWZmcnZybHVucXB2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIyNTU0OTIsImV4cCI6MjA4NzgzMTQ5Mn0.r4UVbaz8k_CeuJanKRb01c2kZ6vtE8x0JIZSjkm195o';
-const DEEPSEEK_KEY = 'sk-9e61546940f649398a48c5d65c217081'; // ← 填入你的 DeepSeek API Key
+// DeepSeek 密钥已移至 Supabase Edge Function（服务端），前端不再持有密钥
 const USER_ID = 'default';
 
 // 进度阶段预设
@@ -460,6 +463,22 @@ let recognition = null, isListening = false;
 let quickPayOrderId = null;
 let customStatuses = JSON.parse(localStorage.getItem('customStatuses') || '[]');
 let selectedStatus = '服务中';
+
+// ============================================================
+// 顶部统计「半隐藏」开关
+// 默认隐藏；点右上角按钮显示，再点又隐藏。刷新页面后恢复为隐藏。
+// ============================================================
+let statsVisible = false; // 默认隐藏
+function applyStatsVisibility(){
+  const stats = document.querySelector('.stats');
+  const btn = document.getElementById('statsToggle');
+  if (stats) stats.style.display = statsVisible ? '' : 'none';
+  if (btn) btn.textContent = statsVisible ? '🙈 隐藏统计' : '👁 显示统计';
+}
+function toggleStats(){
+  statsVisible = !statsVisible;
+  applyStatsVisibility();
+}
 
 // ============================================================
 // 初始化
@@ -600,6 +619,7 @@ function getStatusClass(s) {
 }
 
 function render() {
+  applyStatsVisibility();
   updateStats();
   renderTable();
   renderCards();
@@ -1031,39 +1051,18 @@ async function aiParse() {
   resultEl.classList.remove('show');
 
   try {
-    const prompt = `你是一个论文工单信息提取助手。请从下面的文字中提取工单信息，以JSON格式返回。
-
-文字内容：${text}
-
-请提取以下字段（没有的填null）：
-- customerName: 客户名称
-- groupName: 群名称（括号内的内容）
-- topic: 论文题目
-- amount: 总价（数字）
-- channel: 来单渠道（以安/伍工/其他）
-- progresses: 进度数组，每项包含 {stage:阶段名, date:日期字符串YYYY-MM-DD, note:备注}，阶段名只能是[开题,初稿,一改,二改,三改,定稿,盲审,答辩]之一
-- payments: 收款数组，每项包含 {date:日期字符串YYYY-MM-DD, amount:金额数字, method:方式}
-- serviceStatus: 服务状态，从[服务中,待沟通,待写初稿,待反馈,待成稿,清单]中选一个
-- notes: 备注
-
-只返回JSON，不要任何解释。`;
-
-    const resp = await fetch('https://api.deepseek.com/chat/completions', {
+    const resp = await fetch(`${SUPABASE_URL}/functions/v1/deepseek-parse`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${DEEPSEEK_KEY}`
+        'Authorization': `Bearer ${SUPABASE_KEY}`
       },
-      body: JSON.stringify({
-        model: 'deepseek-chat',
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.1
-      })
+      body: JSON.stringify({ text })
     });
 
     if (!resp.ok) throw new Error('API请求失败：' + resp.status);
     const data = await resp.json();
-    let raw = data.choices[0].message.content.trim();
+    let raw = (data.content || '').trim();
 
     // 清理 markdown 代码块
     raw = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
