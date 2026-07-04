@@ -1051,7 +1051,7 @@ async function aiParse() {
   resultEl.classList.remove('show');
 
   try {
-    const resp = await fetch(`${SUPABASE_URL}/functions/v1/deepseek-parse`, {
+    const resp = await fetch(`${SUPABASE_URL}/functions/v1/bright-action`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
