@@ -8,8 +8,9 @@
 --
 -- 使用方法：
 --   1. 打开 Supabase 项目 → SQL Editor → New query
---   2. 把下面第 3 步的 'OWNER_EMAIL_HERE' 替换成你自己的登录邮箱
---      （必须和你在 admin.html 里登录用的邮箱一致）
+--   2. 下面第 3 步已经填好了 owner 邮箱 2638548180@qq.com
+--      （必须和你在 admin.html 里登录用的邮箱一致，如果之后换了
+--      登录邮箱，记得回来改这里再重新执行一次）
 --   3. 整段粘贴执行一次即可，可以重复执行（用了 if exists / or replace）
 --
 -- 执行前提：
@@ -38,8 +39,8 @@ create policy "orders_owner_full_access"
   on public.orders
   for all
   to authenticated
-  using (auth.jwt() ->> 'email' = 'OWNER_EMAIL_HERE')
-  with check (auth.jwt() ->> 'email' = 'OWNER_EMAIL_HERE');
+  using (auth.jwt() ->> 'email' = '2638548180@qq.com')
+  with check (auth.jwt() ->> 'email' = '2638548180@qq.com');
 
 -- 4. 建一个脱敏的公开视图，只暴露非敏感字段：
 --    课题、服务状态、进度阶段+日期（去掉进度备注 note，因为
